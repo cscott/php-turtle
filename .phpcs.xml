@@ -1,0 +1,30 @@
+<?xml version="1.0"?>
+<ruleset>
+	<file>.</file>
+	<arg name="extensions" value="php,php5,inc" />
+	<arg name="encoding" value="UTF-8" />
+	<exclude-pattern>coverage</exclude-pattern>
+	<exclude-pattern>doc/html</exclude-pattern>
+	<exclude-pattern>vendor</exclude-pattern>
+	<exclude-pattern>.phan</exclude-pattern>
+	<rule ref="./vendor/mediawiki/mediawiki-codesniffer/MediaWiki">
+	</rule>
+	<rule ref="MediaWiki.Commenting.FunctionComment.MissingDocumentationPublic">
+		<exclude-pattern>*/bin/*</exclude-pattern>
+		<exclude-pattern>*/tests/*</exclude-pattern>
+	</rule>
+	<rule ref="MediaWiki.Commenting.FunctionComment.MissingParamTag">
+		<exclude-pattern>*/bin/*</exclude-pattern>
+		<exclude-pattern>*/tests/*</exclude-pattern>
+	</rule>
+	<rule ref="MediaWiki.Commenting.FunctionComment.MissingReturn">
+		<exclude-pattern>*/bin/*</exclude-pattern>
+		<exclude-pattern>*/tests/*</exclude-pattern>
+	</rule>
+	<rule ref="Internal.NoCodeFound">
+		<exclude-pattern>*/src/*</exclude-pattern>
+		<exclude-pattern>*/bin/*</exclude-pattern>
+		<exclude-pattern>*/tests/*</exclude-pattern>
+	</rule>
+	<rule ref="Squiz.Arrays.ArrayBracketSpacing" />
+</ruleset>
