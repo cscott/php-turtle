@@ -8,9 +8,8 @@ use Wikimedia\PhpTurtle\JsUndefined;
 class JsObjectTest extends \PHPUnit\Framework\TestCase {
 	/** @covers Wikimedia\PhpTurtle\JsObject */
 	public function testJsObject() {
-		$o = new JsObject();
-		$o2 = new JsObject();
-		$o2->__proto__ = $o;
+		$o = new JsObject( null );
+		$o2 = new JsObject( $o );
 		$o->b = 5;
 		$this->assertSame( 5, $o->b );
 		$this->assertSame( 5, $o2->b );

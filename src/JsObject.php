@@ -1,4 +1,5 @@
 <?php
+// phpcs:disable MediaWiki.NamingConventions.LowerCamelFunctionsName.FunctionName
 
 namespace Wikimedia\PhpTurtle;
 
@@ -15,6 +16,14 @@ class JsObject {
 	 */
 	// phpcs:ignore PSR2.Classes.PropertyDeclaration.Underscore
 	private $__proto__ = null;
+
+	/**
+	 * Create a new JavaScript object, with $parent as its prototype.
+	 * @param ?JsObject $parent The object prototype.
+	 */
+	public function __construct( ?JsObject $parent ) {
+		$this->__proto__ = $parent;
+	}
 
 	/**
 	 * Handle `$obj->method(...)` "JavaScript style" by fetching the contents
@@ -94,9 +103,40 @@ class JsObject {
 		// First try to invoke JavaScript 'toString' method
 		try {
 			$jsStr = $this->toString();
-			return mb_convert_encoding( $jsStr, 'UTF-16', 'UTF-8' );
+			return mb_convert_encoding(
+				$jsStr,
+				'UTF-8', // to
+				'UTF-16' // from
+			);
 		} catch ( \Throwable $e ) {
 			return "[object Object]";
 		}
+	}
+
+	/**
+	 * Set a hidden property -- these won't be visible to JavaScript.
+	 * @param string $name
+	 * @param mixed $val
+	 */
+	public function __setHidden( string $name, $val ) {
+		if ( !is_array( $this->__proto__ ) ) {
+			$this->__proto__ = [ '__proto__' => $this->__proto ];
+		}
+		$this->__proto__[$name] = $val;
+	}
+
+	/**
+	 * Get a hidden property -- these won't be visible to JavaScript.
+	 * @param string $name
+	 * @return mixed
+	 */
+	public function __getHidden( string $name ) {
+		if (
+			is_array( $this->__proto__ ) &&
+			array_key_exists( $name, $this->__proto__ )
+		) {
+			return $this->__proto__[$name];
+		}
+		return JsUndefined::value();
 	}
 }
