@@ -333,6 +333,21 @@ class Environment {
 	}
 
 	/**
+	 * Convert the given JavaScript value to a JavaScript string (UTF-16).
+	 * @param mixed $val
+	 * @return string
+	 */
+	public function toJsString( $val ) : string {
+		if ( is_string( $val ) ) {
+			return $val;
+		}
+		if ( $val instanceof JsObject ) {
+			return $this->toJsString( $this->toPrimitive( $val, 'String' ) );
+		}
+		return self::valFromPhpStr( self::valToPhpStr( $val ) );
+	}
+
+	/**
 	 * Convert the given JavaScript value to a native/PHP string (UTF-8).
 	 * @param mixed $val
 	 * @return string
@@ -683,17 +698,70 @@ class Environment {
 	 */
 	public function interpretOne( State $state ): State {
 		$op = $state->function->bytecode[$state->pc++];
-		$arg1 = 0;
-		if ( Op::args( $op ) === 1 ) {
-			$arg1 = $state->function->bytecode[$state->pc++];
-		}
 		switch ( $op ) {
 		case Op::PUSH_FRAME:
 			$state->stack[] = $state->frame;
 			break;
+		case Op::PUSH_LITERAL:
+			$arg1 = $state->function->bytecode[$state->pc++];
+			$lit = $state->module->literals[$arg1];
+			if ( is_string( $lit ) ) {
+				$lit = self::valFromPhpStr( $lit );
+			}
+			$state->stack[] = $lit;
+			break;
+		case Op::NEW_OBJECT:
+			$state->stack[] = new JsObject( $this->myObject );
+			break;
+		case Op::RETURN:
+			$retval = array_pop( $state->stack );
+			// go up to the parent state
+			$state = $state->parent;
+			if ( $state === null ) {
+				self::fail( "return from top of stack" );
+				throw new \Error( 'just for phan' );
+			}
+			$state->stack[] = $retval;
+			// continue in parent state
+			break;
+		// branches
+		// stack manipulation
+		// unary operators
+		// binary operators
+		case Op::BI_ADD:
+			$this->binary( $state, function ( $left, $right ) {
+				$lprim = ( $left instanceof JsObject ) ?
+					   $this->toPrimitive( $left, '' ) : $left;
+				$rprim = ( $right instanceof JsObject ) ?
+					   $this->toPrimitive( $right, '' ) : $right;
+				if ( is_string( $lprim ) || is_string( $rprim ) ) {
+					return $this->toJsString( $lprim ) . $this->toJsString( $rprim );
+				}
+				return $this->toNumber( $lprim ) + $this->toNumber( $rprim );
+			} );
+			break;
+		case Op::BI_SUB:
+			$this->binary( $state, function ( $left, $right ) {
+				return $this->toNumber( $left ) - $this->toNumber( $right );
+			} );
+			break;
+		case Op::BI_MUL:
+			$this->binary( $state, function ( $left, $right ) {
+				return $this->toNumber( $left ) * $this->toNumber( $right );
+			} );
+			break;
+		case Op::BI_DIV:
+			$this->binary( $state, function ( $left, $right ) {
+				$left = $this->toNumber( $left );
+				$right = $this->toNumber( $right );
+				if ( $right === 0.0 ) {
+					return ( $left > 0 ) ? INF : -INF;
+				}
+				return $left / $right;
+			} );
+			break;
 		default:
-			// XXXX FINISH ME
-			self::fail( "unknown opcode" );
+			self::fail( "unknown opcode: " . Op::name( $op ) );
 		}
 		return $state;
 	}

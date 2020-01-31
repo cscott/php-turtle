@@ -136,4 +136,74 @@ class Op {
 			return 0;
 		}
 	}
+
+	/**
+	 * Return the human-readable name for the given opcode.
+	 * @param int $op The opcode
+	 * @return string The name of the opcode
+	 */
+	public static function name( int $op ): string {
+		switch ( $op ) {
+		case self::PUSH_FRAME:
+			return "push_frame";
+		case self::PUSH_LITERAL:
+			return "push_literal";
+		case self::NEW_OBJECT:
+			return "new_object";
+		case self::NEW_ARRAY:
+			return "new_array";
+		case self::NEW_FUNCTION:
+			return "new_function";
+		case self::GET_SLOT_DIRECT:
+			return "get_slot_direct";
+		case self::GET_SLOT_INDIRECT:
+			return "get_slot_indirect";
+		case self::GET_SLOT_DIRECT_CHECK:
+			return "get_slot_direct_check";
+		case self::SET_SLOT_DIRECT:
+			return "set_slot_direct";
+		case self::SET_SLOT_INDIRECT:
+			return "set_slot_indirect";
+		case self::INVOKE:
+			return "invoke";
+		case self::RETURN:
+			return "return";
+		case self::JMP:
+			return "jmp";
+		case self::JMP_UNLESS:
+			return "jmp_unless";
+		case self::POP:
+			return "pop";
+		case self::DUP:
+			return "dup";
+		case self::DUP2:
+			return "2dup";
+		case self::OVER:
+			return "over";
+		case self::OVER2:
+			return "over2";
+		case self::SWAP:
+			return "swap";
+		case self::UN_NOT:
+			return "un_not";
+		case self::UN_MINUS:
+			return "un_minus";
+		case self::UN_TYPEOF:
+			return "un_typeof";
+		case self::BI_EQ:
+			return "bi_eq";
+		case self::BI_GT:
+			return "bi_gt";
+		case self::BI_GTE:
+			return "bi_gte";
+		case self::BI_ADD:
+			return "bi_add";
+		case self::BI_SUB:
+			return "bi_sub";
+		case self::BI_MUL:
+			return "bi_mul";
+		case self::BI_DIV:
+			return "bi_div";
+		}
+	}
 }

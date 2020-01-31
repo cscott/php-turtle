@@ -17,7 +17,7 @@ class Module {
 	 * @param array $functions
 	 * @param array $literals
 	 */
-	private function __construct( array $functions, array $literals ) {
+	public function __construct( array $functions, array $literals ) {
 		$this->functions = $functions;
 		$this->literals = $literals;
 	}
@@ -78,7 +78,7 @@ class Module {
 				}
 				break;
 			case 1:
-				// XXX literal table is UTF8?
+				// Note: literal table is UTF8 (not UTF16)
 				$val = $reader->decodeUtf8Str();
 				break;
 			// boolean tags
