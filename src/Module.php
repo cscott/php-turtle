@@ -29,7 +29,7 @@ class Module {
 	public static function newStartupModule(): Module {
 		$functions = [];
 		$literals = [];
-		// Startup::startup_init($functions, $literals);
+		Startup::init( $functions, $literals );
 		return new Module( $functions, $literals );
 	}
 

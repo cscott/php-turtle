@@ -149,6 +149,136 @@ class Environment {
 			// XXX host object support?
 			return $o;
 		} );
+		$this->addNativeFunc( $frame, $this->myObject, 'defaultValue', function (
+			$_this, $args
+		) use ( $getarg ) {
+			$isDate = false; // XXX fix when we support Date objects
+			$hint = self::valToPhpStr( $getarg( $args, 0 ) );
+			if ( $hint !== 'String' && $hint !== 'Number' ) {
+				// @phan-suppress-next-line PhanImpossibleCondition
+				$hint = ( $isDate ? 'String' : 'Number' );
+			}
+			$toString = $_this->toString;
+			$valueOf = $_this->valueOf;
+			if ( $hint === 'String' ) {
+				$first = $toString;
+				$second = $valueOf;
+			} else {
+				$first = $valueOf;
+				$second = $toString;
+			}
+			if ( $this->isCallable( $first ) ) {
+				$rv = $this->interpretFunction( $first, $_this, [] );
+				if ( !( $rv instanceof JsObject ) ) {
+					return $rv;
+				}
+			}
+			if ( $this->isCallable( $second ) ) {
+				$rv = $this->interpretFunction( $second, $_this, [] );
+				if ( !( $rv instanceof JsObject ) ) {
+					return $rv;
+				}
+			}
+			self::fail( 'TypeError' ); // XXX throw
+		}, true /* hidden */ );
+
+		$this->addNativeFunc( $frame, $this->myObject, 'hasOwnProperty', function (
+			$_this, $args
+		) use ( $getarg ) {
+			$prop = $this->toPhpString( $getarg( $args, 0 ) );
+			if ( is_bool( $_this ) ) {
+				$_this = $_this ? $this->myTrue : $this->myFalse;
+			}
+			if ( $_this instanceof JsObject ) {
+				return property_exists( $_this, $prop );
+			}
+			if ( is_string( $_this ) ) {
+				if ( $prop === 'length' ) {
+					return true;
+				} elseif ( is_numeric( $prop ) &&
+						  ( 2 * intval( $prop ) ) < strlen( $_this ) ) {
+					return true;
+				} else {
+					return false;
+				}
+			}
+			if ( is_int( $_this ) || is_float( $_this ) ) {
+				return false;
+			}
+			if ( $_this === null || $_this === JsUndefined::value() ) {
+				self::fail( 'TypeError' ); // XXX should throw
+			}
+			self::fail( 'Unexpected type in hasOwnProperty' );
+		} );
+		$this->addNativeFunc( $frame, $myObjectCons, 'create', function (
+			$_this, $args
+		) use ( $getarg ) {
+			$parent = $getarg( $args, 0 );
+			if ( $parent instanceof JsObject ) {
+				return new JsObject( $parent );
+			} elseif ( $parent === null ) {
+				return new JsObject( null );
+			}
+			self::fail( 'TypeError' ); // XXX should throw
+		} );
+		$this->addNativeFunc( $frame, $this->myBoolean, 'valueOf', function (
+			$_this, $args
+		) use ( $getarg ) {
+			if ( is_bool( $_this ) ) {
+				return $this;
+			} elseif ( $_this instanceof JsObject ) {
+				self::fail( 'Boolean.valueOf() unimplemented' );
+			} else {
+				self::fail( 'TypeError' ); // XXX should throw
+			}
+		} );
+		$this->addNativeFunc( $frame, $frame, 'isNaN', function (
+			$_this, $args
+		) use ( $getarg ) {
+			return is_nan( $this->toNumber( $getarg( $args, 0 ) ) );
+		} );
+		$this->addNativeFunc( $frame, $frame, 'isFinite', function (
+			$_this, $args
+		) use ( $getarg ) {
+			return is_finite( $this->toNumber( $getarg( $args, 0 ) ) );
+		} );
+		$this->addNativeFunc( $frame, $frame, 'parseInt', function (
+			$_this, $args
+		) use ( $getarg ) {
+			$number = $getarg( $args, 0 );
+			$radix = $getarg( $args, 1 );
+			// falsy radix values become radix 10
+			if ( $radix === false || $radix === '' || $radix === null ||
+				$radix === JsUndefined::value() ) {
+				$radix = 10;
+			} else {
+				$r = $this->toNumber( $radix );
+				if ( !is_finite( $r ) ) {
+					$radix = 10;
+				} elseif ( $r < 2 || $r >= 37 ) {
+					$radix = 0; // aka bail
+				} else {
+					$radix = intval( $r );
+				}
+			}
+			if ( $radix !== 0 ) {
+				if ( is_string( $number ) ) {
+					// XXX parseInt(' 10x ', 16) = 16, so we seem to trim
+					//     non-digit chars from the right.
+					$s = trim( $this->toPhpString( $number ) );
+					return floatval( intval( $s, $radix ) );
+				} elseif ( is_float( $number ) || is_int( $number ) ) {
+					// this is weird, but seems to match EcmaScript
+					return floatval( intval( strval( $number ), $radix ) );
+				}
+			}
+			return NAN;
+		} );
+		$this->addNativeFunc( $frame, $frame, 'now', function (
+			$_this, $args
+		) {
+			self::fail( 'now() unimplemented' );
+		} );
 
 		return $frame;
 	}
