@@ -464,6 +464,66 @@ class Environment {
 	}
 
 	/**
+	 * Set the value of the given slot in the specified object.  This does
+	 * the necessary redirection for primitives, etc.
+	 * @param mixed $obj The object
+	 * @param string $name The name of the property to set
+	 * @param mixed $nval The new value of the slot
+	 */
+	public function setSlot( $obj, string $name, $nval ): void {
+		if ( $obj instanceof JsObject ) {
+			$type = $obj->__getHidden( 'type' );
+			if ( $type === 'array' ) {
+				// Handle array sets specially: they update the length field
+				if ( $name === 'length' ) {
+					// Sanity-check the new length.
+					$nlen = self::valToUint( $nval );
+					if ( $nlen === null ) {
+						// XXX this should throw RangeError
+						self::fail( 'RangeError' );
+					}
+					// Truncate the array
+					$olen = $obj->length;
+					if ( !is_int( $olen ) ) {
+						self::fail( 'Bad array length' );
+					}
+					while ( $olen > $nlen ) {
+						$olen--;
+						$name = strval( $olen );
+						unset( $obj->$name );
+					}
+					$obj->length = $nlen;
+				} elseif ( is_numeric( $name ) ) { // XXX and no decimal points!
+					$n = intval( $name );
+					$len = $obj->length;
+					if ( $n >= $len ) {
+						$obj->length = ( $n + 1 );
+					}
+					$obj->$n = $nval;
+				} else {
+					$obj->$name = $nval;
+				}
+			} else {
+				// XXX could have TypedArray support here
+				$obj->$name = $nval;
+			}
+		} elseif ( is_bool( $obj ) ) {
+			// handle writes to booleans (not supported in standard js)
+			$bobj = ( $obj ? $this->myTrue : $this->myFalse );
+			$bobj->$name = $nval;
+		} elseif ( is_string( $obj ) ) {
+			// ignore for now, but should probably handle setting indexed chars
+		} elseif ( is_float( $obj ) || is_int( $obj ) ) {
+			// ignore write to field of primitive value
+		} elseif ( $obj === null || $obj === JsUndefined::value() ) {
+			// XXX should throw TypeError
+			self::fail( "TypeError: Cannot set property $name of $obj" );
+		} else {
+			self::fail( "Write to unexpected object!" );
+		}
+	}
+
+	/**
 	 * Create a new JavaScript array object from the provided PHP array of
 	 * JavaScript values.
 	 * @param array $vals
@@ -471,7 +531,7 @@ class Environment {
 	 */
 	public function arrayCreate( array $vals ) : JsObject {
 		$arr = new JsObject( $this->myArray );
-		$arr->length = floatval( count( $vals ) );
+		$arr->length = count( $vals );
 		$i = 0;
 		foreach ( $vals as $v ) {
 			// XXX converting array indexes to strings is a bit of fail.
@@ -713,6 +773,69 @@ class Environment {
 		case Op::NEW_OBJECT:
 			$state->stack[] = new JsObject( $this->myObject );
 			break;
+		case Op::NEW_ARRAY:
+			$na = new JsObject( $this->myArray );
+			$na->length = 0;
+			$state->stack[] = $na;
+			break;
+		case Op::NEW_FUNCTION:
+			$arg1 = $state->function->bytecode[$state->pc++];
+			$function = $state->module->functions[$arg1];
+			$f = new JsObject( $this->myFunction );
+			// hidden fields of function object
+			$f->__setHidden( 'parentFrame', $state->frame );
+			$f->__setHidden( 'value', new InterpretedFunction(
+				$state->module,
+				$function
+			) );
+			// user-visible fields
+			$name = $function->name;
+			$f->name = $name === null ? JsUndefined::value() :
+					self::valFromPhpStr( $name );
+			$f->length = floatval( $function->nargs );
+			$state->stack[] = $f;
+			break;
+		case Op::GET_SLOT_DIRECT:
+			$arg1 = $state->function->bytecode[$state->pc++];
+			$obj = array_pop( $state->stack );
+			$name = $state->module->literals[$arg1];
+			$state->stack[] = $this->getSlot( $obj, $name );
+			break;
+		case Op::GET_SLOT_DIRECT_CHECK:
+			$arg1 = $state->function->bytecode[$state->pc++];
+			$obj = array_pop( $state->stack );
+			$name = $state->module->literals[$arg1];
+			$result = $this->getSlot( $obj, $name );
+			if ( !( $result instanceof JsObject ) ) {
+				// Warn about unimplemented (probably library) functions
+				error_log( "Failing lookup of method $name" );
+			}
+			$state->stack[] = $result;
+			break;
+		case Op::GET_SLOT_INDIRECT:
+			$name = array_pop( $state->stack );
+			$obj = array_pop( $state->stack );
+			$state->stack[] = $this->getSlot( $obj, $this->toPhpString( $name ) );
+			break;
+		case Op::SET_SLOT_DIRECT:
+			$arg1 = $state->function->bytecode[$state->pc++];
+			$name = $state->module->literals[$arg1];
+			$nval = array_pop( $state->stack );
+			$obj = array_pop( $state->stack );
+			$this->setSlot( $obj, $name, $nval );
+			break;
+		case Op::SET_SLOT_INDIRECT:
+			$arg1 = $state->function->bytecode[$state->pc++];
+			$name = $state->module->literals[$arg1];
+			$nval = array_pop( $state->stack );
+			$name = array_pop( $state->stack );
+			$obj = array_pop( $state->stack );
+			$this->setSlot( $obj, $this->toPhpString( $name ), $nval );
+			break;
+		case Op::INVOKE:
+			$arg1 = $state->function->bytecode[$state->pc++];
+			$state = $this->invoke( $state, $arg1 );
+			break;
 		case Op::RETURN:
 			$retval = array_pop( $state->stack );
 			// go up to the parent state
@@ -724,10 +847,84 @@ class Environment {
 			$state->stack[] = $retval;
 			// continue in parent state
 			break;
+
 		// branches
+		case Op::JMP:
+			$arg1 = $state->function->bytecode[$state->pc++];
+			$state->pc = $arg1;
+			break;
+		case Op::JMP_UNLESS:
+			$arg1 = $state->function->bytecode[$state->pc++];
+			$cond = array_pop( $state->stack );
+			if ( !$this->toBoolean( $cond ) ) {
+				$state->pc = $arg1;
+			}
+			break;
+
 		// stack manipulation
+		case Op::POP:
+			array_pop( $state->stack );
+			break;
+		case Op::DUP:
+			$len = count( $state->stack );
+			$top = $state->stack[$len - 1];
+			$state->stack[] = $top;
+			break;
+		case Op::DUP2:
+			$len = count( $state->stack );
+			$top = $state->stack[$len - 1];
+			$nxt = $state->stack[$len - 2];
+			$state->stack[] = $nxt;
+			$state->stack[] = $top;
+			break;
+		case Op::OVER:
+			$top = array_pop( $state->stack );
+			$nxt = array_pop( $state->stack );
+			$state->stack[] = $top;
+			$state->stack[] = $nxt;
+			$state->stack[] = $top;
+			break;
+		case Op::OVER2:
+			$top = array_pop( $state->stack );
+			$nx1 = array_pop( $state->stack );
+			$nx2 = array_pop( $state->stack );
+			$state->stack[] = $top;
+			$state->stack[] = $nx2;
+			$state->stack[] = $nx1;
+			$state->stack[] = $top;
+			break;
+		case Op::SWAP:
+			$top = array_pop( $state->stack );
+			$nxt = array_pop( $state->stack );
+			$state->stack[] = $top;
+			$state->stack[] = $nxt;
+			break;
+
 		// unary operators
+
 		// binary operators
+		case Op::BI_GT:
+			$this->binary( $state, function ( $left, $right ) {
+				if ( is_string( $left ) && is_string( $right ) ) {
+					return ( $left > $right );
+				}
+				if ( is_float( $left ) || is_int( $left ) || is_float( $right ) || is_int( $right ) ) {
+					return $this->toNumber( $left ) > $this->toNumber( $right );
+				}
+				self::fail( 'Unimplemented case for bi_gt' );
+			} );
+			break;
+		case Op::BI_GTE:
+			$this->binary( $state, function ( $left, $right ) {
+				if ( is_string( $left ) && is_string( $right ) ) {
+					return ( $left >= $right );
+				}
+				if ( is_float( $left ) || is_int( $left ) || is_float( $right ) || is_int( $right ) ) {
+					return $this->toNumber( $left ) >= $this->toNumber( $right );
+				}
+				self::fail( 'Unimplemented case for bi_gte' );
+			} );
+			break;
 		case Op::BI_ADD:
 			$this->binary( $state, function ( $left, $right ) {
 				$lprim = ( $left instanceof JsObject ) ?

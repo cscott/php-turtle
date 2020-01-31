@@ -9,7 +9,7 @@ namespace Wikimedia\PhpTurtle;
 class Module {
 	/** @var array<BytecodeFunction> */
 	public $functions;
-	/** @var array */
+	/** @var array<mixed> */
 	public $literals;
 
 	/**

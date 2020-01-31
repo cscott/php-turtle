@@ -120,7 +120,7 @@ class JsObject {
 	 */
 	public function __setHidden( string $name, $val ) {
 		if ( !is_array( $this->__proto__ ) ) {
-			$this->__proto__ = [ '__proto__' => $this->__proto ];
+			$this->__proto__ = [ '__proto__' => $this->__proto__ ];
 		}
 		$this->__proto__[$name] = $val;
 	}
@@ -131,11 +131,26 @@ class JsObject {
 	 * @return mixed
 	 */
 	public function __getHidden( string $name ) {
-		if (
-			is_array( $this->__proto__ ) &&
-			array_key_exists( $name, $this->__proto__ )
-		) {
-			return $this->__proto__[$name];
+		// Dispatch to prototype chain.  For efficiency, don't just recursively
+		// invoke __proto__->__get($name), but open code it as an iterative loop
+		for ( $parent = $this; true; ) {
+			if (
+				is_array( $parent->__proto__ ) &&
+				array_key_exists( $name, $parent->__proto__ )
+			) {
+				// @phan-suppress-next-line PhanTypeArraySuspiciousNullable
+				return $parent->__proto__[$name];
+			}
+			// go one level up the chain.
+			$parent = $parent->__proto__;
+			if ( is_array( $parent ) ) {
+				// strip the private info.
+				$parent = $parent['__proto__'];
+			}
+			if ( !( $parent instanceof JsObject ) ) {
+				// This includes null and JsUndefined
+				break;
+			}
 		}
 		return JsUndefined::value();
 	}
