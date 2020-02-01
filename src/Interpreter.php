@@ -42,6 +42,7 @@ class Interpreter {
 		$buf = '';
 		$this->env->arrayEach( $bc, function ( $val ) use ( &$buf ) {
 			$buf .= chr( intval( $this->env->toNumber( $val ) ) );
+			return true;
 		} );
 		$nm = Module::newFromBytes( $buf );
 		// execute the new module.
@@ -66,6 +67,7 @@ class Interpreter {
 		$buf = '';
 		$this->env->arrayEach( $bc, function ( $val ) use ( &$buf ) {
 			$buf .= chr( intval( $this->env->toNumber( $val ) ) );
+			return true;
 		} );
 		$nm = Module::newFromBytes( $buf );
 		// execute the new module.

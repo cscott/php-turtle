@@ -90,7 +90,7 @@ class Environment {
 
 		$myObjectCons = $mkConstructor( "Object", $this->myObject );
 		$mkConstructor( "Array", $this->myArray );
-		$mkConstructor( "Function", $this->myFunction );
+		$mkConstructor( "Function", $myFunction );
 		$myBooleanCons = $mkConstructor( "Boolean", $this->myBoolean );
 		$myStringCons = $mkConstructor( "String", $this->myString );
 		$mkConstructor( "Number", $this->myNumber );
@@ -120,9 +120,10 @@ class Environment {
 		) use ( $undefined ) {
 			$sargs = [];
 			foreach ( $args as $a ) {
-				$sargs = $this->toPhpString( $a );
+				$sargs[] = $this->toPhpString( $a );
 			}
 			echo( implode( ' ', $sargs ) );
+			echo( "\n" );
 			return $undefined;
 		} );
 		$opts = $this->addNativeFunc( $frame, $this->myObject, 'toString', function (
@@ -253,7 +254,7 @@ class Environment {
 				$radix = 10;
 			} else {
 				$r = $this->toNumber( $radix );
-				if ( !is_finite( $r ) ) {
+				if ( is_nan( $r ) || !is_finite( $r ) ) {
 					$radix = 10;
 				} elseif ( $r < 2 || $r >= 37 ) {
 					$radix = 0; // aka bail
@@ -262,14 +263,17 @@ class Environment {
 				}
 			}
 			if ( $radix !== 0 ) {
-				if ( is_string( $number ) ) {
-					// XXX parseInt(' 10x ', 16) = 16, so we seem to trim
-					//     non-digit chars from the right.
-					$s = trim( $this->toPhpString( $number ) );
-					return floatval( intval( $s, $radix ) );
-				} elseif ( is_float( $number ) || is_int( $number ) ) {
+				if ( is_float( $number ) || is_int( $number ) ) {
 					// this is weird, but seems to match EcmaScript
-					return floatval( intval( strval( $number ), $radix ) );
+					$number = strval( $number );
+				}
+				// XXX parseInt(' 10x ', 16) = 16, so we seem to trim
+				//     non-digit chars from the right.
+				$s = trim( $this->toPhpString( $number ) );
+				if ( !is_numeric( $s ) ) {
+					return NAN;
+				} else {
+					return floatval( intval( $s, $radix ) );
 				}
 			}
 			return NAN;
@@ -278,6 +282,176 @@ class Environment {
 			$_this, $args
 		) {
 			self::fail( 'now() unimplemented' );
+		} );
+		$this->addNativeFunc( $frame, $this->myString, 'charAt', function (
+			$_this, $args
+		) use ( $getarg ) {
+			$idx = $this->toNumber( $getarg( $args, 0 ) );
+			$idx = is_nan( $idx ) ? 0 : intval( $idx ); // strange NaN behavior
+			if ( !is_string( $_this ) ) {
+				// XXX probably should support String('abc'), which is an
+				// Object whose prototype is a String...
+				self::fail( "charAt called on a non-string" );
+			}
+			if ( 0 <= $idx && ( $idx << 1 ) < strlen( $_this ) ) {
+				return substr( $_this, $idx << 1, 2 );
+			} else {
+				return '';
+			}
+		} );
+		$this->addNativeFunc( $frame, $this->myString, 'charCodeAt', function (
+			$_this, $args
+		) use ( $getarg ) {
+			$idx = $this->toNumber( $getarg( $args, 0 ) );
+			$idx = is_nan( $idx ) ? 0 : intval( $idx ); // strange NaN behavior
+			if ( !is_string( $_this ) ) {
+				// XXX probably should support String('abc'), which is an
+				// Object whose prototype is a String...
+				self::fail( "charCodeAt called on a non-string" );
+			}
+			if ( 0 <= $idx && ( $idx << 1 ) < strlen( $_this ) ) {
+				$idx = $idx << 1;
+				return floatval( ( ord( $_this[$idx] ) << 8 ) + ord( $_this[$idx + 1] ) );
+			} else {
+				return NAN;
+			}
+		} );
+		$this->addNativeFunc( $frame, $this->myString, 'substring', function (
+			$_this, $args
+		) {
+			self::fail( 'String.substring() unimplemented' );
+		} );
+		$this->addNativeFunc( $frame, $this->myString, 'valueOf', function (
+			$_this, $args
+		) {
+			if ( is_string( $_this ) ) {
+				return $_this;
+			}
+			if ( $_this instanceof JsObject ) {
+				self::fail( 'wrapped string valueOf unimplemented' );
+			}
+			self::fail( 'TypeError: String.prototype.valueOf is not generic' );
+		} );
+		$this->addNativeFunc( $frame, $myStringCons, 'fromCharCode', function (
+			$_this, $args
+		) {
+			self::fail( 'String.fromCharCode() unimplemented' );
+		} );
+		$this->addNativeFunc( $frame, $this->myMath, 'floor', function (
+			$_this, $args
+		) use ( $getarg ) {
+			return floor( $this->toNumber( $getarg( $args, 0 ) ) );
+		} );
+		$this->addNativeFunc( $frame, $this->myNumber, 'toString', function (
+			$_this, $args
+		) use ( $getarg ) {
+			if ( !( is_int( $_this ) || is_float( $_this ) ) ) {
+				self::fail( 'TypeError: Number.prototype.toString is not generic' );
+			}
+			$radix = $getarg( $args, 0 );
+			if ( $radix === JsUndefined::value() ) {
+				$radix = 10;
+			} elseif ( is_int( $radix ) || is_float( $radix ) ) {
+				if ( $radix >= 2 && $radix <= 36 ) {
+					$radix = intval( $radix );
+				} else {
+					self::fail( 'RangeError: toString() radix argument must be between 2 and 36' );
+				}
+			} else {
+				self::fail( 'RangeError: bad radix' );
+			}
+			//var_dump(['Number'=>'toString','this'=>$_this,'radix'=>$radix]);
+			if ( is_nan( $_this ) ) {
+				$s = 'NaN';
+			} elseif ( is_finite( $_this ) ) {
+				if ( $radix == 10 ) {
+					$s = strval( $_this );
+				} else {
+					$s = base_convert( strval( $_this ), 10, $radix );
+				}
+			} elseif ( $_this > 0 ) {
+				$s = 'Infinity';
+			} else {
+				$s = '-Infinity';
+			}
+			return self::valFromPhpStr( $s );
+		} );
+		$this->addNativeFunc( $frame, $this->myNumber, 'valueOf', function (
+			$_this, $args
+		) {
+			if ( is_int( $_this ) || is_float( $_this ) ) {
+				return $_this;
+			}
+			self::fail( "TypeError" );
+		} );
+
+		// XXX: We're not quite handling the "this" argument correctly.
+		// According to:
+		// https://developer.mozilla.org/en/JavaScript/Reference/Global_Objects/Function/call
+		// "If thisArg is null or undefined, this will be the global
+		// object. Otherwise, this will be equal to Object(thisArg)
+		// (which is thisArg if thisArg is already an object, or a
+		// String, Boolean, or Number if thisArg is a primitive value
+		// of the corresponding type)."
+		// this is disallowed in ES-5 strict mode; throws an exception instead
+		//  http://ejohn.org/blog/ecmascript-5-strict-mode-json-and-more/
+		$this->addNativeFunc( $frame, $myFunction, 'call', function (
+			$_this, $args
+		) {
+			// push arguments on stack and use 'invoke' bytecode op.
+			// arg #0 is the function itself ('this')
+			// arg #1 is 'this' (for the invoked function)
+			// arg #2-#n are rest of arguments
+			if ( count( $args ) === 0 ) {
+				// Ensure there's a 'this' value (for the invoked function);
+				// that's a non-optional argument
+				$args[] = JsUndefined::value();
+			}
+			// Add the function itself to the front
+			array_unshift( $args, $_this );
+			return $this->arrayCreate( $args );
+		} )->__setHidden( 'isApply', true );
+
+		$this->addNativeFunc( $frame, $myFunction, 'apply', function (
+			$_this, $args
+		) use ( $getarg ) {
+			// push arguments on stack and use 'invoke' bytecode op.
+			// arg #0 is the function itself ('this')
+			// arg #1 is 'this' (for the invoked function)
+			// arg #2 is rest of arguments, as array
+			$nargs = [ $_this, $getarg( $args, 0 ) ];
+			if ( count( $args ) > 1 ) {
+				$this->arrayEach( $args[1], function ( $v ) use ( &$nargs ) {
+					$nargs[] = $v;
+					return true;
+				} );
+			}
+			return $this->arrayCreate( $nargs ); // this is the natural order
+		} )->__setHidden( 'isApply', true );
+
+		// Object.Try/Object.Throw -- turtlescript extension!
+		$this->addNativeFunc( $frame, $myObjectCons, 'Try', function (
+			$_this, $args
+		) use ( $getarg ) {
+			$innerThis = $getarg( $args, 0 );
+			$bodyBlock = $getarg( $args, 1 );
+			$catchBlock = $getarg( $args, 2 );
+			$finallyBlock = $getarg( $args, 3 );
+			$rv = $this->interpretFunction( $bodyBlock, $innerThis, [] );
+			if ( $rv instanceof JsThrown && $catchBlock instanceof JsObject ) {
+				// exception caught!  invoke catchBlock!
+				$this->interpretFunction( $catchBlock, $innerThis, [ $rv ] );
+				$rv = JsUndefined::value();
+			}
+			if ( $finallyBlock instanceof JsObject ) {
+				self::fail( "finally unimplemented" );
+			}
+			return $rv;
+		} );
+		$this->addNativeFunc( $frame, $myObjectCons, 'Throw', function (
+			$_this, $args
+		) use ( $getarg ) {
+			return new JsThrown( $getarg( $args, 0 ) );
 		} );
 
 		return $frame;
@@ -404,7 +578,7 @@ class Environment {
 				return 0.0;
 			default:
 				// XXX should support 0xNN format
-				return floatval( $s );
+				return is_numeric( $s ) ? floatval( $s ) : NAN;
 			}
 		} elseif ( $val === JsUndefined::value() ) {
 			return NAN;
@@ -421,14 +595,18 @@ class Environment {
 	 * the necessary redirection for primitives, etc.
 	 * @param mixed $obj The object
 	 * @param string $name The name of the property to get
+	 * @param bool $isHidden Whether this is a user-visible property or not
 	 * @return mixed The result of the property lookup
 	 */
-	public function getSlot( $obj, string $name ) {
+	public function getSlot( $obj, string $name, bool $isHidden = false ) {
 		if ( is_string( $obj ) ) {
-			if ( $name === '__proto__' ) {
+			if ( $isHidden ) {
+				return $this->myString->__getHidden( $name );
+			} elseif ( $name === '__proto__' ) {
 				return $this->myString;
 			} elseif ( $name === 'length' ) {
-				return floatval( strlen( $obj ) / 2 ); // UTF-16 length is twice JS
+				// UTF-16 length is twice JS
+				return floatval( strlen( $obj ) / 2 );
 			} elseif ( is_numeric( $name ) ) {
 				$n = intval( $name ) << 1;
 				if ( $n < strlen( $obj ) ) {
@@ -440,18 +618,26 @@ class Environment {
 				return $this->myString->$name;
 			}
 		} elseif ( is_bool( $obj ) ) {
-			if ( $name === '__proto__' ) {
+			$bobj = $obj ? $this->myTrue : $this->myFalse;
+			if ( $isHidden ) {
+				return $bobj->__getHidden( $name );
+			} elseif ( $name === '__proto__' ) {
 				return $this->myBoolean;
 			} else {
-				return ( $obj ? $this->myTrue : $this->myFalse )->$name;
+				return $bobj->$name;
 			}
 		} elseif ( is_float( $obj ) || is_int( $obj ) ) {
-			if ( $name === '__proto__' ) {
+			if ( $isHidden ) {
+				return $this->myNumber->__getHidden( $name );
+			} elseif ( $name === '__proto__' ) {
 				return $this->myNumber;
 			} else {
 				return $this->myNumber->$name;
 			}
 		} elseif ( $obj instanceof JsObject ) {
+			if ( $isHidden ) {
+				return $obj->__getHidden( $name );
+			}
 			// XXX add basic typed array support here?
 			return $obj->$name; // xxx prototype chains can't include special types
 		} elseif ( $obj === null ) {
@@ -603,7 +789,7 @@ class Environment {
 		for ( $i = 0; $i < $arg1; $i++ ) {
 			$nativeArgs[] = array_pop( $state->stack );
 		}
-		array_reverse( $nativeArgs );
+		$nativeArgs = array_reverse( $nativeArgs );
 		// collect 'this'
 		$myThis = array_pop( $state->stack );
 		// get function object
@@ -670,7 +856,8 @@ class Environment {
 	 * Helper function to execute a unary operation.  The operand is popped
 	 * from the stack, and the result is pushed onto the stack.
 	 * @param State $state
-	 * @param callable $uop The implementation of the unary operation.
+	 * @param callable(mixed):mixed $uop
+	 *   The implementation of the unary operation.
 	 */
 	private function unary( State $state, callable $uop ): void {
 		$arg = array_pop( $state->stack );
@@ -681,7 +868,8 @@ class Environment {
 	 * Helper function to execute a binary operation.  Operands are popped
 	 * from the stack, and the result is pushed onto the stack.
 	 * @param State $state
-	 * @param callable $bop The implementation of the binary operation.
+	 * @param callable(mixed,mixed):mixed $bop
+	 *   The implementation of the binary operation.
 	 */
 	private function binary( State $state, callable $bop ): void {
 		$right = array_pop( $state->stack );
@@ -725,7 +913,7 @@ class Environment {
 			$nFrame->this = $myThis;
 			$nFrame->arguments = $this->arrayCreate( $args );
 			return $this->interpret(
-				$function->module, $function->function->id, $nFrame
+				$value->module, $value->function->id, $nFrame
 			);
 		}
 		self::fail( 'not a function' );
@@ -825,8 +1013,6 @@ class Environment {
 			$this->setSlot( $obj, $name, $nval );
 			break;
 		case Op::SET_SLOT_INDIRECT:
-			$arg1 = $state->function->bytecode[$state->pc++];
-			$name = $state->module->literals[$arg1];
 			$nval = array_pop( $state->stack );
 			$name = array_pop( $state->stack );
 			$obj = array_pop( $state->stack );
@@ -901,8 +1087,44 @@ class Environment {
 			break;
 
 		// unary operators
+		case Op::UN_NOT:
+			$this->unary( $state, function ( $arg ) {
+				return !$this->toBoolean( $arg );
+			} );
+			break;
+		case Op::UN_MINUS:
+			$this->unary( $state, function ( $arg ) {
+				if ( is_int( $arg ) || is_float( $arg ) ) {
+					return -$arg;
+				}
+				self::fail( "Unimplemented case for minus" );
+			} );
+			break;
+		case Op::UN_TYPEOF:
+			$this->unary( $state, function ( $arg ) {
+				if ( $arg === null ) {
+					return self::valFromPhpStr( "object" );
+				} elseif ( $arg === JsUndefined::value() ) {
+					return self::valFromPhpStr( "undefined" );
+				}
+				$ty = $this->getSlot( $arg, 'type', true );
+				if ( $ty === 'array' ) {
+					// weird javascript misfeature
+					return self::valFromPhpStr( 'object' );
+				}
+				return self::valFromPhpStr( $ty );
+			} );
+			break;
 
 		// binary operators
+		case Op::BI_EQ:
+			$this->binary( $state, function ( $left, $right ) {
+				if ( $left === $right ) {
+					return true;
+				}
+				return false;
+			} );
+			break;
 		case Op::BI_GT:
 			$this->binary( $state, function ( $left, $right ) {
 				if ( is_string( $left ) && is_string( $right ) ) {
@@ -1017,6 +1239,8 @@ class Environment {
 				return 'Infinity';
 			} elseif ( $val === -INF ) {
 				return '-Infinity';
+			} elseif ( is_nan( $val ) ) {
+				return 'NaN';
 			} else {
 				return strval( $val );
 			}

@@ -73,6 +73,8 @@ class Module {
 					$val = INF;
 				} elseif ( "-Infinity" === $num ) {
 					$val = -INF;
+				} elseif ( "NaN" === $num ) {
+					$val = NAN;
 				} else {
 					$val = floatval( $num );
 				}
