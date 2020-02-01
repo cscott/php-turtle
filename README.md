@@ -6,12 +6,14 @@ PHP.  TurtleScript is a syntactic
 (but not semantic) subset of JavaScript, originally created for
 the One Laptop per Child project.
 
-## Build, Install, and Run
+## Install, and Run
+
+Installation with `composer install`, as usual.
 
 To run a TurtleScript
 [REPL](http://en.wikipedia.org/wiki/Read%E2%80%93eval%E2%80%93print_loop):
 ```
-$ php main.php
+$ bin/phpturtle
 > 2+3
 5
 > var fact = function(x) { return (x<2) ? x : (x * fact(x-1)) ; };
@@ -23,7 +25,7 @@ undefined
 Use Control-D (or Control-C) to exit the REPL.  You can also evaluate entire
 TurtleScript scripts by passing the name on the command line:
 ```
-$ php main.php foo.js
+$ bin/phpturtle foo.js
 ```
 
 ## Testing

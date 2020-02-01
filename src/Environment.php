@@ -321,6 +321,18 @@ class Environment {
 		) {
 			self::fail( 'String.substring() unimplemented' );
 		} );
+		$this->addNativeFunc( $frame, $this->myString, 'toLowerCase', function (
+			$_this, $args
+		) {
+			$phpStr = $this->toPhpString( $_this );
+			return self::valFromPhpStr(strtolower($phpStr));
+		} );
+		$this->addNativeFunc( $frame, $this->myString, 'toUpperCase', function (
+			$_this, $args
+		) {
+			$phpStr = $this->toPhpString( $_this );
+			return self::valFromPhpStr(strtoupper($phpStr));
+		} );
 		$this->addNativeFunc( $frame, $this->myString, 'valueOf', function (
 			$_this, $args
 		) {

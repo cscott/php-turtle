@@ -39,6 +39,10 @@ class Interpreter {
 				Environment::valFromPhpStr( $source )
 			] );
 		// Create a new module from the bytecode
+		if ($bc instanceof JsThrown) {
+			// Syntax error during compilation.
+			return $bc;
+		}
 		$buf = '';
 		$this->env->arrayEach( $bc, function ( $val ) use ( &$buf ) {
 			$buf .= chr( intval( $this->env->toNumber( $val ) ) );
