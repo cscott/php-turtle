@@ -14,13 +14,13 @@ To run a TurtleScript
 [REPL](http://en.wikipedia.org/wiki/Read%E2%80%93eval%E2%80%93print_loop):
 ```
 $ bin/phpturtle
-> 2+3
+>>> 2+3
 5
-> var fact = function(x) { return (x<2) ? x : (x * fact(x-1)) ; };
+>>> var fact = function(x) { return (x<2) ? x : (x * fact(x-1)) ; };
 undefined
-> fact(42)
-1405006117752880268066222604204040608686664282428002
->
+>>> fact(42)
+1.4050061177529E+51
+>>>
 ```
 Use Control-D (or Control-C) to exit the REPL.  You can also evaluate entire
 TurtleScript scripts by passing the name on the command line:
