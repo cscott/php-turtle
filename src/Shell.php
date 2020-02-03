@@ -7,28 +7,45 @@ use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Output\OutputInterface;
 
 class Shell extends Application {
-	const VERSION = 'v0.0.0';
+	public const VERSION = 'v0.0.0';
 
-	const PROMPT      = '>>> ';
-	const BUFF_PROMPT = '... ';
-	const REPLAY      = '--> ';
-	const RETVAL      = '=> ';
+	public const PROMPT      = '>>> ';
+	public const BUFF_PROMPT = '... ';
+	public const REPLAY      = '--> ';
+	public const RETVAL      = '=> ';
 
-	public $includes = [];
+	private $includes = [];
 
+	/**
+	 * Create a new REPL shell.
+	 */
 	public function __construct() {
 		parent::__construct( 'Psy Shell', self::VERSION );
 	}
 
+	/**
+	 * Return the version of PhpTurtle.
+	 * @return string
+	 */
 	public function getVersion() {
 		return self::VERSION;
 	}
 
-	public function setIncludes( array $includes ) {
+	/**
+	 * Set an array of files to load and run.
+	 * @param array<string> $includes
+	 */
+	public function setIncludes( array $includes ): void {
 		$this->includes = $includes;
 	}
 
-	public function run( ?InputInterface $input = null, ?OutputInterface $output = null ) {
+	/**
+	 * Source the list of includes, or run the REPL loop if there are no
+	 * includes.
+	 * @param InputInterface|null $input
+	 * @param OutputInterface|null $output
+	 */
+	public function run( ?InputInterface $input = null, ?OutputInterface $output = null ): void {
 		$i = new Interpreter();
 		if ( count( $this->includes ) < 1 ) {
 			while ( true ) {
@@ -38,7 +55,7 @@ class Shell extends Application {
 				}
 				readline_add_history( $line );
 				$rv = $i->repl( $line );
-				$this->print_jsval( $i->env, $rv );
+				$this->printJsVal( $i->env, $rv );
 			}
 		} else {
 			foreach ( $this->includes as $filename ) {
@@ -47,13 +64,18 @@ class Shell extends Application {
 				if ( $rv === JsUndefined::value() ) {
 					/* suppress printout */
 				} else {
-					$this->print_jsval( $i->env, $rv );
+					$this->printJsVal( $i->env, $rv );
 				}
 			}
 		}
 	}
 
-	private function print_jsval( Environment $env, $jsval ) {
+	/**
+	 * Echo the value of $jsval.
+	 * @param Environment $env
+	 * @param mixed $jsval
+	 */
+	private function printJsVal( Environment $env, $jsval ): void {
 		if ( $jsval instanceof JsThrown ) {
 			// If there's a message field of the thrown object,
 			// print that

@@ -39,7 +39,7 @@ class Interpreter {
 				Environment::valFromPhpStr( $source )
 			] );
 		// Create a new module from the bytecode
-		if ($bc instanceof JsThrown) {
+		if ( $bc instanceof JsThrown ) {
 			// Syntax error during compilation.
 			return $bc;
 		}
