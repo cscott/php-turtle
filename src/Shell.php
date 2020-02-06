@@ -87,6 +87,9 @@ class Shell extends Application {
 			echo( "* $msg\n" );
 		} else {
 			$s = $env->toPhpString( $jsval );
+			if ( is_string( $jsval ) ) {
+				$s = json_encode( $s );
+			}
 			echo( "$s\n" );
 		}
 	}
