@@ -53,6 +53,7 @@ class Environment {
 		callable $f, bool $isHidden = false
 	) : JsObject {
 		$myFunc = new JsObject( $this->myFunction );
+		$myFunc->name = self::valFromPhpStr( $name );
 		$myFunc->__setHidden( 'parentFrame', $frame );
 		$myFunc->__setHidden( 'value', $f );
 		if ( $isHidden ) {
@@ -318,8 +319,20 @@ class Environment {
 		} );
 		$this->addNativeFunc( $frame, $this->myString, 'substring', function (
 			$_this, $args
-		) {
-			self::fail( 'String.substring() unimplemented' );
+		) use ( $getarg ) {
+			$s = $this->toJsString( $_this ); // UTF-16
+			$len = strlen( $s ) >> 1;
+			$start = $getarg( $args, 0 );
+			$end = $getarg( $args, 1 );
+			$intStart = $this->toInteger( $start );
+			$intEnd = ( $end === JsUndefined::value() ) ? $len :
+					$this->toInteger( $end );
+			$finalStart = (int)min( max( $intStart, 0 ), $len );
+			$finalEnd = (int)min( max( $intEnd, 0 ), $len );
+			$from = (int)min( $finalStart, $finalEnd );
+			$to = (int)max( $finalStart, $finalEnd );
+			$span = ( $to - $from );
+			return substr( $s, $from << 1, $span << 1 );
 		} );
 		$this->addNativeFunc( $frame, $this->myString, 'toLowerCase', function (
 			$_this, $args
@@ -574,8 +587,10 @@ class Environment {
 	 */
 	public function toNumber( $val ): float {
 		// this is the conversion done by (eg) bi_mul
-		if ( is_int( $val ) || is_float( $val ) ) {
+		if ( is_float( $val ) ) {
 			return $val;
+		} elseif ( is_int( $val ) ) {
+			return floatval( $val );
 		} elseif ( $val instanceof JsObject ) {
 			return $this->toNumber( $this->toPrimitive( $val, 'Number' ) );
 		} elseif ( is_string( $val ) ) {
@@ -589,17 +604,35 @@ class Environment {
 			case '': // empty string is zero
 				return 0.0;
 			default:
-				// XXX should support 0xNN format
+				// XXX should support NonDecimalIntegerLiteral
+				// aka 0xNN, 0b, 0
 				return is_numeric( $s ) ? floatval( $s ) : NAN;
 			}
 		} elseif ( $val === JsUndefined::value() ) {
 			return NAN;
 		} elseif ( is_bool( $val ) ) {
-			return $val ? 1 : 0;
+			return $val ? 1.0 : +0.0;
 		} elseif ( $val === null ) {
-			return 0;
+			return +0.0;
 		}
 		self::fail( "can't convert to number" );
+	}
+
+	/**
+	 * Convert the given JavaScript value to an integer
+	 * @param mixed $val
+	 * @return float
+	 */
+	public function toInteger( $val ): float {
+		$number = $this->toNumber( $val );
+		if ( is_nan( $number ) ) {
+			return +0.0;
+		} elseif ( !is_finite( $number ) || ( $number == 0 ) ) {
+			return $number;
+		} else {
+			$magnitude = floor( abs( $number ) );
+			return ( $number < 0 ) ? -$magnitude : $magnitude;
+		}
 	}
 
 	/**
