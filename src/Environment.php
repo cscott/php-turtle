@@ -84,7 +84,9 @@ class Environment {
 		$myFunction = $this->myFunction;
 		$mkConstructor = function ( $name, $proto ) use ( $myFunction, $frame ) {
 			$cons = new JsObject( $this->myFunction );
+			$cons->name = self::valFromPhpStr( $name );
 			$cons->prototype = $proto;
+			$cons->__setHidden( 'parentFrame', $frame );
 			$frame->$name = $cons;
 			return $cons;
 		};
@@ -94,7 +96,7 @@ class Environment {
 		$mkConstructor( "Function", $myFunction );
 		$myBooleanCons = $mkConstructor( "Boolean", $this->myBoolean );
 		$myStringCons = $mkConstructor( "String", $this->myString );
-		$mkConstructor( "Number", $this->myNumber );
+		$myNumberCons = $mkConstructor( "Number", $this->myNumber );
 
 		$frame->Math = $this->myMath;
 
@@ -104,11 +106,30 @@ class Environment {
 		};
 
 		// Boolean called as a function
-		$myBooleanCons->__setHidden( 'parentFrame', $frame );
 		$myBooleanCons->__setHidden( 'value', function (
 			$_this, $args
 		) use ( $getarg ) {
 			return $this->toBoolean( $getarg( $args, 0 ) );
+		} );
+		// Number called as a function
+		$myNumberCons->__setHidden( 'value', function (
+			$_this, $args
+		) use ( $getarg ) {
+			if ( count( $args ) === 0 ) {
+				return 0.0;
+			}
+			return $this->toNumeric( $args[0] );
+		} );
+		// String called as a function
+		$myStringCons->__setHidden( 'value', function (
+			$_this, $args
+		) {
+			if ( count( $args ) === 0 ) {
+				$value = '';
+			} else {
+				$value = $this->toJsString( $args[0] );
+			}
+			return $value;
 		} );
 
 		// support for console.log
@@ -616,6 +637,17 @@ class Environment {
 			return +0.0;
 		}
 		self::fail( "can't convert to number" );
+	}
+
+	/**
+	 * Convert the given JavaScript value to a numeric value.
+	 * @param mixed $val
+	 * @return float
+	 */
+	public function toNumeric( $val ): float {
+		$primValue = ( $val instanceof JsObject ) ?
+			$this->toPrimitive( $val, 'Number' ) : $val;
+		return $this->toNumber( $primValue );
 	}
 
 	/**
