@@ -5,35 +5,36 @@ namespace Wikimedia\PhpTurtle;
 
 class Op {
 	public const PUSH_FRAME = 0;
-	public const PUSH_LITERAL = 1;
-	public const NEW_OBJECT = 2;
-	public const NEW_ARRAY = 3;
-	public const NEW_FUNCTION = 4;
-	public const GET_SLOT_DIRECT = 5;
-	public const GET_SLOT_INDIRECT = 6;
-	public const GET_SLOT_DIRECT_CHECK = 7;
-	public const SET_SLOT_DIRECT = 8;
-	public const SET_SLOT_INDIRECT = 9;
-	public const INVOKE = 10;
-	public const RETURN = 11;
-	public const JMP = 12;
-	public const JMP_UNLESS = 13;
-	public const POP = 14;
-	public const DUP = 15;
-	public const DUP2 = 16;
-	public const OVER = 17;
-	public const OVER2 = 18;
-	public const SWAP = 19;
-	public const UN_NOT = 20;
-	public const UN_MINUS = 21;
-	public const UN_TYPEOF = 22;
-	public const BI_EQ = 23;
-	public const BI_GT = 24;
-	public const BI_GTE = 25;
-	public const BI_ADD = 26;
-	public const BI_SUB = 27;
-	public const BI_MUL = 28;
-	public const BI_DIV = 29;
+	public const PUSH_LOCAL_FRAME = 1;
+	public const PUSH_LITERAL = 2;
+	public const NEW_OBJECT = 3;
+	public const NEW_ARRAY = 4;
+	public const NEW_FUNCTION = 5;
+	public const GET_SLOT_DIRECT = 6;
+	public const GET_SLOT_INDIRECT = 7;
+	public const GET_SLOT_DIRECT_CHECK = 8;
+	public const SET_SLOT_DIRECT = 9;
+	public const SET_SLOT_INDIRECT = 10;
+	public const INVOKE = 11;
+	public const RETURN = 12;
+	public const JMP = 13;
+	public const JMP_UNLESS = 14;
+	public const POP = 15;
+	public const DUP = 16;
+	public const DUP2 = 17;
+	public const OVER = 18;
+	public const OVER2 = 19;
+	public const SWAP = 20;
+	public const UN_NOT = 21;
+	public const UN_MINUS = 22;
+	public const UN_TYPEOF = 23;
+	public const BI_EQ = 24;
+	public const BI_GT = 25;
+	public const BI_GTE = 26;
+	public const BI_ADD = 27;
+	public const BI_SUB = 28;
+	public const BI_MUL = 29;
+	public const BI_DIV = 30;
 
 	/**
 	 * Return the number of arguments used for the given opcode.
@@ -64,6 +65,7 @@ class Op {
 	public static function stackpush( int $op ): int {
 		switch ( $op ) {
 		case self::PUSH_FRAME:
+		case self::PUSH_LOCAL_FRAME:
 		case self::PUSH_LITERAL:
 		case self::NEW_OBJECT:
 		case self::NEW_ARRAY:
@@ -146,6 +148,8 @@ class Op {
 		switch ( $op ) {
 		case self::PUSH_FRAME:
 			return "push_frame";
+		case self::PUSH_LOCAL_FRAME:
+			return "push_local_frame";
 		case self::PUSH_LITERAL:
 			return "push_literal";
 		case self::NEW_OBJECT:

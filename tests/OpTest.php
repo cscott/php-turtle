@@ -15,6 +15,6 @@ class OpTest extends \PHPUnit\Framework\TestCase {
 
 	/** @covers Wikimedia\PhpTurtle\Op */
 	public function testCast() {
-		$this->assertSame( 1, Op::PUSH_LITERAL );
+		$this->assertSame( 2, Op::PUSH_LITERAL );
 	}
 }

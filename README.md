@@ -73,7 +73,7 @@ representations on the fly.
 
 Compiling the bytecode could make use of type information, perhaps
 propagated from variable initialization and the types of arguments
-when a function is invokes, in order to reduce the amount of dynamic
+when a function is invoked, in order to reduce the amount of dynamic
 type dispatch.  A small number of specialized versions of any given
 function could be compiled, falling back to the present bytecode
 interpreter if the function turns out to be polyvariant.

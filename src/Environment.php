@@ -490,7 +490,7 @@ class Environment {
 				$rv = JsUndefined::value();
 			}
 			if ( $finallyBlock instanceof JsObject ) {
-				self::fail( "finally unimplemented" );
+				$this->interpretFunction( $finallyBlock, $innerThis, [] );
 			}
 			return $rv;
 		} );
@@ -1025,6 +1025,7 @@ class Environment {
 		$op = $state->function->bytecode[$state->pc++];
 		switch ( $op ) {
 		case Op::PUSH_FRAME:
+		case Op::PUSH_LOCAL_FRAME: // Lame! We can do better...
 			$state->stack[] = $state->frame;
 			break;
 		case Op::PUSH_LITERAL:
@@ -1187,7 +1188,13 @@ class Environment {
 				$ty = $this->getSlot( $arg, 'type', true );
 				if ( $ty === 'array' ) {
 					// weird javascript misfeature
-					return self::valFromPhpStr( 'object' );
+					$ty = 'object';
+				}
+				if ( $ty === 'function' ) {
+					// Not all our functions are callable!
+					if ( !$this->isCallable( $arg ) ) {
+						$ty = 'object';
+					}
 				}
 				return self::valFromPhpStr( $ty );
 			} );
