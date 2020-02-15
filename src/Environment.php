@@ -1117,12 +1117,21 @@ class Environment {
 			$arg1 = $state->function->bytecode[$state->pc++];
 			$state->pc = $arg1;
 			break;
+		case Op::JMP_INTO_LOOP:
+			$dest = $state->function->bytecode[$state->pc++];
+			$loopexit = $state->function->bytecode[$state->pc++];
+			$state->pc = $dest;
+			break;
 		case Op::JMP_UNLESS:
-			$arg1 = $state->function->bytecode[$state->pc++];
+			$dest = $state->function->bytecode[$state->pc++];
+			$mergepoint = $state->function->bytecode[$state->pc++];
 			$cond = array_pop( $state->stack );
 			if ( !$this->toBoolean( $cond ) ) {
-				$state->pc = $arg1;
+				$state->pc = $dest;
 			}
+			break;
+		case Op::PHI:
+			/* no op */
 			break;
 
 		// stack manipulation

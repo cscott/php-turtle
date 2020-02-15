@@ -18,23 +18,25 @@ class Op {
 	public const INVOKE = 11;
 	public const RETURN = 12;
 	public const JMP = 13;
-	public const JMP_UNLESS = 14;
-	public const POP = 15;
-	public const DUP = 16;
-	public const DUP2 = 17;
-	public const OVER = 18;
-	public const OVER2 = 19;
-	public const SWAP = 20;
-	public const UN_NOT = 21;
-	public const UN_MINUS = 22;
-	public const UN_TYPEOF = 23;
-	public const BI_EQ = 24;
-	public const BI_GT = 25;
-	public const BI_GTE = 26;
-	public const BI_ADD = 27;
-	public const BI_SUB = 28;
-	public const BI_MUL = 29;
-	public const BI_DIV = 30;
+	public const JMP_INTO_LOOP = 14;
+	public const JMP_UNLESS = 15;
+	public const PHI = 16;
+	public const POP = 17;
+	public const DUP = 18;
+	public const DUP2 = 19;
+	public const OVER = 20;
+	public const OVER2 = 21;
+	public const SWAP = 22;
+	public const UN_NOT = 23;
+	public const UN_MINUS = 24;
+	public const UN_TYPEOF = 25;
+	public const BI_EQ = 26;
+	public const BI_GT = 27;
+	public const BI_GTE = 28;
+	public const BI_ADD = 29;
+	public const BI_SUB = 30;
+	public const BI_MUL = 31;
+	public const BI_DIV = 32;
 
 	/**
 	 * Return the number of arguments used for the given opcode.
@@ -50,8 +52,10 @@ class Op {
 		case self::SET_SLOT_DIRECT:
 		case self::INVOKE:
 		case self::JMP:
-		case self::JMP_UNLESS:
 			return 1;
+		case self::JMP_INTO_LOOP:
+		case self::JMP_UNLESS:
+			return 2;
 		default:
 			return 0;
 		}
@@ -174,8 +178,12 @@ class Op {
 			return "return";
 		case self::JMP:
 			return "jmp";
+		case self::JMP_INTO_LOOP:
+			return "jmp_into_loop";
 		case self::JMP_UNLESS:
 			return "jmp_unless";
+		case self::PHI:
+			return "phi";
 		case self::POP:
 			return "pop";
 		case self::DUP:
